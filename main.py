@@ -43,9 +43,9 @@ def penalize(ga, schedule, tasks):
             penalty += 80 * remaining_hour
         else:
             penalty += -10 * remaining_hour
-        dead_line_over_hours = plan[:sum(schedule[:task[1]])].count(i) - task[0]
-        if dead_line_over_hours > 0:
-            penalty += 100 * task[2] * dead_line_over_hours
+        deadline_over_hours = plan[:sum(schedule[:task[1]])].count(i) - task[0]
+        if deadline_over_hours > 0:
+            penalty += 100 * task[2] * deadline_over_hours
     # 同じタスクが続くpenalty rate:1
     for i in range(len(plan)-1):
         if plan[i] == plan[i+1]:
