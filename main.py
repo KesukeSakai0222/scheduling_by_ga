@@ -7,9 +7,9 @@ GENOM_LENGTH = sum(SCHEDULE)
 tasks = {"Japanese": [4, 3, 1], "Math": [5, 4, 2], "English": [6, 5, 3]}
 MAX_GENOM_NUM = 100
 SELECT_GENOM = 20
-PROBABILITY_MUTATION = 0.03
+PROBABILITY_MUTATION = 0.01
 PROBABILITY_GE_MUTATION = 0.1
-MAX_GENERATION = 200
+MAX_GENERATION = 1000
 
 def create_genom(length, tasks):
     """
@@ -32,20 +32,17 @@ def penalize(ga, schedule, tasks):
     penalty = 0
     plan = ga.GetPlan()
     last_hour_of_the_day = []
-    # 〆切超過penalty rate:100 * 重要度
-    # 残りタスクpenalty rate:80
-    # タスク超過penalty rate:10
+    # 〆切超過penalty rate:1000 * 重要度
+    # タスク超過penalty rate:100
     for i, key in enumerate(tasks):
         task = tasks[key]
         i += 1  # 0はFreeに充てるので一つずらす
-        remaining_hour = plan.count(i) - task[0]
-        if remaining_hour >= 0:
-            penalty += 80 * remaining_hour
-        else:
-            penalty += -10 * remaining_hour
-        deadline_over_hours = plan[:sum(schedule[:task[1]])].count(i) - task[0]
+        remaining_hour = task[0] - plan.count(i)
+        if remaining_hour < 0:
+            penalty += -100 * remaining_hour
+        deadline_over_hours = task[0] - plan[:sum(schedule[:task[1]])].count(i)
         if deadline_over_hours > 0:
-            penalty += 100 * task[2] * deadline_over_hours
+            penalty += 1000 * task[2] * deadline_over_hours
     # 同じタスクが続くpenalty rate:1
     tmp = -1
     sep_day = []
@@ -53,7 +50,7 @@ def penalize(ga, schedule, tasks):
         tmp += hour_
         sep_day.append(tmp)
     for i in range(len(plan)-1):
-        if plan[i] == plan[i+1] and i not in sep_day:
+        if plan[i] == plan[i+1] and i not in sep_day and plan[i] != 0:
             penalty += 1
     return penalty
 
@@ -127,6 +124,7 @@ def mutation(genoms, tasks, probability_mutation, probability_ge_mutation):
         else:
             mutated_genoms.append(ga_)
     return mutated_genoms
+
 
 if __name__ == '__main__':
     # 第一世代の生成
