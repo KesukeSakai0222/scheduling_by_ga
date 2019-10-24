@@ -47,8 +47,13 @@ def penalize(ga, schedule, tasks):
         if deadline_over_hours > 0:
             penalty += 100 * task[2] * deadline_over_hours
     # 同じタスクが続くpenalty rate:1
+    tmp = -1
+    sep_day = []
+    for hour_ in SCHEDULE:
+        tmp += hour_
+        sep_day.append(tmp)
     for i in range(len(plan)-1):
-        if plan[i] == plan[i+1]:
+        if plan[i] == plan[i+1] and i not in sep_day:
             penalty += 1
     return penalty
 
@@ -156,4 +161,12 @@ if __name__ == '__main__':
 
     print("最も優れた個体")
     keys = ["Free"] + list(tasks.keys())
-    print([keys[i] for i in elite_genoms[0].GetPlan()])
+    prev = 0
+    next = 0
+    best_ = [keys[i] for i in elite_genoms[0].GetPlan()]
+    transformed_plan = []
+    for hour_ in SCHEDULE:
+        next += hour_
+        transformed_plan.append(best_[prev:next])
+        prev = next
+    print(transformed_plan)
