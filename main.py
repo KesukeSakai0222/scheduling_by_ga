@@ -4,43 +4,39 @@ import random
 SCHEDULE = [5, 3, 4, 2, 3, 2]
 GENOM_LENGTH = sum(SCHEDULE)
 # {教科: [見込み工数, 期限, 重要度]}
-tasks = {"Japanese": [4, 3, 1], "Math": [5, 4, 2], "English": [6, 5, 3]}
+TASKS = {"Japanese": [4, 3, 1], "Math": [5, 4, 2], "English": [6, 5, 3]}
 MAX_GENOM_NUM = 100
-SELECT_GENOM = 20
 PROBABILITY_MUTATION = 0.01
 PROBABILITY_GE_MUTATION = 0.1
-MAX_GENERATION = 1000
+MAX_GENERATION = 100
 
-def create_genom(length, tasks):
+def create_genom(length):
     """
     引数で指定された桁のランダムな遺伝子情報を生成し，格納したgenomClassで返す
     :param length 使用可能な工数
-    :param tasks tasksの辞書
     :return schedule_genom
     """
-    task_plan = [random.randint(0, len(tasks)) for _ in range(GENOM_LENGTH)]
-    return ga.schedule_genom(task_plan, 0)
+    task_plan = [random.randint(0, len(TASKS)) for _ in range(GENOM_LENGTH)]
+    return ga.schedule_genom(task_plan, penalize(task_plan))
 
 
-def penalize(ga, schedule, tasks):
+def penalize(plan):
     """
     評価関数
-    :param ga:genomClass
-    :param schedule: スケジュールのlist
+    :param plan:genomClassのスケジュールリスト
     :return penalty
     """
     penalty = 0
-    plan = ga.GetPlan()
     last_hour_of_the_day = []
     # 〆切超過penalty rate:1000 * 重要度
-    # タスク超過penalty rate:100
-    for i, key in enumerate(tasks):
-        task = tasks[key]
+    # タスク超過penalty rate:10000
+    for i, key in enumerate(TASKS):
+        task = TASKS[key]
         i += 1  # 0はFreeに充てるので一つずらす
         remaining_hour = task[0] - plan.count(i)
         if remaining_hour < 0:
-            penalty += -100 * remaining_hour
-        deadline_over_hours = task[0] - plan[:sum(schedule[:task[1]])].count(i)
+            penalty += -10000 * remaining_hour
+        deadline_over_hours = task[0] - plan[:sum(SCHEDULE[:task[1]])].count(i)
         if deadline_over_hours > 0:
             penalty += 1000 * task[2] * deadline_over_hours
     # 同じタスクが続くpenalty rate:1
@@ -55,17 +51,6 @@ def penalize(ga, schedule, tasks):
     return penalty
 
 
-def select(genoms, elite_length):
-    """
-    選択関数
-    :param genoms: genomClassのリスト
-    :param elite_length: 選択するエリートの数
-    :return 選択した数のgenomClassのリスト
-    """
-    sort_result = sorted(genoms, reverse=False, key=lambda u: u.penalty)
-    return sort_result[:elite_length]
- 
-
 def crossover(ga_fst, ga_snd):
     """
     交叉関数
@@ -76,50 +61,58 @@ def crossover(ga_fst, ga_snd):
     tmp = random.randint(0, GENOM_LENGTH)
     cross_point = (tmp, random.randint(tmp,GENOM_LENGTH))
     
-    fst_genom = ga_fst.GetPlan()
-    snd_genom = ga_snd.GetPlan()
+    fst_plan = ga_fst.GetPlan()
+    snd_plan = ga_snd.GetPlan()
 
-    progeny_fst = fst_genom[:cross_point[0]] + snd_genom[cross_point[0]:cross_point[1]] + fst_genom[cross_point[1]:]
-    progeny_snd = snd_genom[:cross_point[0]] + snd_genom[cross_point[0]:cross_point[1]] + snd_genom[cross_point[1]:]
+    progeny_fst = []
+    progeny_snd = []
+    for fst_ge, snd_ge in zip(fst_plan, snd_plan):
+        if 0.5 >= random.random():
+            progeny_fst.append(fst_ge)
+            progeny_snd.append(snd_ge)
+        else:
+            progeny_fst.append(snd_ge)
+            progeny_snd.append(fst_ge)
 
-    return [ga.schedule_genom(progeny_fst, 0), ga.schedule_genom(progeny_snd, 0)]
+    return [ga.schedule_genom(progeny_fst, penalize(progeny_fst)),
+            ga.schedule_genom(progeny_snd, penalize(progeny_snd))]
 
 
-def next_generation_create(genoms, ga_elite, ga_progeny):
+def next_generation_create(genoms):
     """
     世代交代処理
     : param genoms: 現行遺伝子集団
-    : param ga_elite: 現行エリート集団
-    : param ga_progeny: 現行子孫集団
     : return next_genoms: 次世代遺伝子集団
     """
-    next_genoms = sorted(genoms, reverse=False, key=lambda u: u.penalty)
-    next_genoms = next_genoms[0: MAX_GENOM_NUM-len(ga_elite)-len(ga_progeny)]
-
-    next_genoms.extend(ga_elite)
-    next_genoms.extend(ga_progeny)
+    next_genoms = []
+    random.shuffle(genoms)
+    for i in range(int(MAX_GENOM_NUM/2)):
+        fa = genoms.pop()
+        ma = genoms.pop()
+        family = crossover(fa, ma)
+        family.extend((fa, ma))
+        family = sorted(family, reverse=False, key=lambda u: u.penalty)
+        next_genoms.extend(family[:2])
     return next_genoms
 
 
-def mutation(genoms, tasks, probability_mutation, probability_ge_mutation):
+def mutation(genoms):
     """
     突然変異関数
     : param genoms：対象GenomClassのリスト
-    : param tasks : taskのリスト
-    : param probability_mutation: 個体に対する突然変異確率 range(0,1)
-    : param probability_ge_mutation: 遺伝子情報の変異確率 range(0,1)
     : return ga: 突然変異処理後のGenomClass
     """
     mutated_genoms = []
-    for ga_ in genoms[1:]:  # 一番いい個体は残す
-        if probability_mutation > random.random():
+    for ga_ in genoms:
+        if PROBABILITY_MUTATION > random.random():
             genom = []
             for i_ in ga_.GetPlan():
-                if probability_ge_mutation > random.random():
-                    genom.append(random.randint(0, len(tasks)))
+                if PROBABILITY_GE_MUTATION > random.random():
+                    genom.append(random.randint(0, len(TASKS)))
                 else:
                     genom.append(i_)
             ga_.SetPlan(genom)
+            ga_.SetPenalty(penalize(ga_.GetPlan()))
             mutated_genoms.append(ga_)
         else:
             mutated_genoms.append(ga_)
@@ -127,26 +120,16 @@ def mutation(genoms, tasks, probability_mutation, probability_ge_mutation):
 
 
 if __name__ == '__main__':
-    # 第一世代の生成
+    # susus第一世代の生成
     current_generation_genoms = []
     for _ in range(MAX_GENOM_NUM):
-        current_generation_genoms.append(create_genom(GENOM_LENGTH, tasks))
+        current_generation_genoms.append(create_genom(GENOM_LENGTH))
 
     for count_ in range(1, MAX_GENERATION + 1):
-        # 評価
-        for ga_ in current_generation_genoms:
-            ga_.SetPenalty(penalize(ga_, SCHEDULE, tasks))
-        # エリート集団の生成
-        elite_genoms = select(current_generation_genoms, SELECT_GENOM)
-        # 子孫の生成
-        progeny_genoms = []
-        for i in range(SELECT_GENOM):
-            progeny_genoms.extend(crossover(elite_genoms[i-1], elite_genoms[i]))
-        next_generation_genoms = next_generation_create(current_generation_genoms,
-                                                        elite_genoms, progeny_genoms)
+        # 次世代の作成
+        next_generation_genoms = next_generation_create(current_generation_genoms.copy())
         # 突然変異
-        next_generation_genoms = mutation(next_generation_genoms, tasks,
-                                          PROBABILITY_MUTATION, PROBABILITY_GE_MUTATION)
+        next_generation_genoms = mutation(next_generation_genoms)
         # 評価
         fits = [ga_.GetPenalty() for ga_ in current_generation_genoms]
 
@@ -157,11 +140,12 @@ if __name__ == '__main__':
 
         current_generation_genoms = next_generation_genoms
 
-    print("最も優れた個体")
-    keys = ["Free"] + list(tasks.keys())
+    currrent_generation_genoms = sorted(current_generation_genoms, reverse=False, key=lambda u: u.penalty)
+    # print("最も優れた個体")
+    keys = ["Free"] + list(TASKS.keys())
     prev = 0
     next = 0
-    best_ = [keys[i] for i in elite_genoms[0].GetPlan()]
+    best_ = [keys[i] for i in current_generation_genoms[0].GetPlan()]
     transformed_plan = []
     for hour_ in SCHEDULE:
         next += hour_
