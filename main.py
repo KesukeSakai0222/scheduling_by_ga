@@ -5,7 +5,7 @@ SCHEDULE = [5, 3, 4, 2, 3, 2]
 GENOM_LENGTH = sum(SCHEDULE)
 # {教科: [見込み工数, 期限, 重要度]}
 TASKS = {"Japanese": [4, 3, 1], "Math": [5, 4, 2], "English": [6, 5, 3]}
-MAX_GENOM_NUM = 100
+MAX_GENOM_NUM = 1000
 PROBABILITY_MUTATION = 0.01
 PROBABILITY_GE_MUTATION = 0.1
 MAX_GENERATION = 100
@@ -140,15 +140,16 @@ if __name__ == '__main__':
 
         current_generation_genoms = next_generation_genoms
 
-    currrent_generation_genoms = sorted(current_generation_genoms, reverse=False, key=lambda u: u.penalty)
+    next_generation_genoms = sorted(next_generation_genoms, reverse=False, key=lambda u: u.penalty)
     # print("最も優れた個体")
-    keys = ["Free"] + list(TASKS.keys())
-    prev = 0
-    next = 0
-    best_ = [keys[i] for i in current_generation_genoms[0].GetPlan()]
-    transformed_plan = []
-    for hour_ in SCHEDULE:
-        next += hour_
-        transformed_plan.append(best_[prev:next])
-        prev = next
-    print(transformed_plan)
+    for i in range(fits.count(0)):
+        keys = ["Free"] + list(TASKS.keys())
+        prev = 0
+        next = 0
+        best_ = [keys[i] for i in next_generation_genoms[i].GetPlan()]
+        transformed_plan = []
+        for hour_ in SCHEDULE:
+            next += hour_
+            transformed_plan.append(best_[prev:next])
+            prev = next
+        print(transformed_plan)
