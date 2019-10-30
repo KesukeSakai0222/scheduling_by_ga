@@ -5,7 +5,7 @@ SCHEDULE = [5, 3, 4, 2, 3, 2]
 GENOM_LENGTH = sum(SCHEDULE)
 # {教科: [見込み工数, 期限, 重要度]}
 TASKS = {"Japanese": [4, 3, 1], "Math": [5, 4, 2], "English": [6, 5, 3]}
-MAX_GENOM_NUM = 1000
+MAX_GENOM_NUM = 100
 PROBABILITY_MUTATION = 0.01
 PROBABILITY_GE_MUTATION = 0.1
 MAX_GENERATION = 100
@@ -36,7 +36,7 @@ def penalize(plan):
         remaining_hour = task[0] - plan.count(i)
         if remaining_hour < 0:
             penalty += -10000 * remaining_hour
-        deadline_over_hours = task[0] - plan[:sum(SCHEDULE[:task[1]])].count(i)
+        deadline_over_hours = task[0] - plan[:sum(SCHEDULE[:task[1]+1])].count(i)
         if deadline_over_hours > 0:
             penalty += 1000 * task[2] * deadline_over_hours
     # 同じタスクが続くpenalty rate:1
